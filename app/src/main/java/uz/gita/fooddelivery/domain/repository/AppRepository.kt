@@ -2,6 +2,7 @@ package uz.gita.fooddelivery.domain.repository
 
 import kotlinx.coroutines.flow.Flow
 import uz.gita.fooddelivery.data.model.CategoryData
+import uz.gita.fooddelivery.data.model.MyOrderData
 import uz.gita.fooddelivery.data.source.local.entity.ProductEntity
 
 interface AppRepository {
@@ -18,4 +19,6 @@ interface AppRepository {
     fun createAccount(email:String,password:String):Flow<Result<String>>
     fun login(email:String,password: String):Flow<Result<String>>
     fun hasLoggedIn():Flow<Boolean>
+    fun sendOrders():Flow<Result<String>>
+    fun getMyOrders():Flow<Result<List<MyOrderData>>>
 }

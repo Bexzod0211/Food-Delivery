@@ -68,6 +68,9 @@ class CartViewModel @Inject constructor(
                     }
                     .launchIn(viewModelScope)
             }
+            CartContract.Intent.SendOrders->{
+                
+            }
         }
     }
 }

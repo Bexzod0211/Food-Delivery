@@ -8,11 +8,13 @@ import uz.gita.fooddelivery.presentation.ui.usecase.CartUseCase
 import uz.gita.fooddelivery.presentation.ui.usecase.FoodDetailsUseCase
 import uz.gita.fooddelivery.presentation.ui.usecase.HomeUseCase
 import uz.gita.fooddelivery.presentation.ui.usecase.MainUseCase
+import uz.gita.fooddelivery.presentation.ui.usecase.MyOrdersUseCase
 import uz.gita.fooddelivery.presentation.ui.usecase.SignUseCase
 import uz.gita.fooddelivery.presentation.ui.usecase.impl.CartUseCaseImpl
 import uz.gita.fooddelivery.presentation.ui.usecase.impl.FoodDetailsUseCaseImpl
 import uz.gita.fooddelivery.presentation.ui.usecase.impl.HomeUseCaseImpl
 import uz.gita.fooddelivery.presentation.ui.usecase.impl.MainUseCaseImpl
+import uz.gita.fooddelivery.presentation.ui.usecase.impl.MyOrdersUseCaseImpl
 import uz.gita.fooddelivery.presentation.ui.usecase.impl.SignUseCaseImpl
 
 @Module
@@ -33,4 +35,7 @@ interface UseCaseModule {
 
     @Binds
     fun bindSignUseCase(impl:SignUseCaseImpl):SignUseCase
+
+    @Binds
+    fun bindMyOrdersUseCase(impl:MyOrdersUseCaseImpl):MyOrdersUseCase
 }

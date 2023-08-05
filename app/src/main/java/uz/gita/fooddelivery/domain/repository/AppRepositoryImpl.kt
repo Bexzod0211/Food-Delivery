@@ -1,6 +1,5 @@
 package uz.gita.fooddelivery.domain.repository
 
-import com.google.android.gms.tasks.OnFailureListener
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
@@ -11,6 +10,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import uz.gita.fooddelivery.data.model.CategoryData
+import uz.gita.fooddelivery.data.model.MyOrderData
 import uz.gita.fooddelivery.data.model.ProductData
 import uz.gita.fooddelivery.data.source.local.LocalDatabase
 import uz.gita.fooddelivery.data.source.local.entity.ProductEntity
@@ -25,6 +25,7 @@ class AppRepositoryImpl @Inject constructor(
 
     private val dao = localDb.getProductDao()
     override val selectedList = mutableListOf<String>()
+    private val myOrdersCollection = "My orders"
     override fun getProductsCountInCart(): Flow<Int> {
         return dao.getProductsCount()
     }
@@ -57,6 +58,65 @@ class AppRepositoryImpl @Inject constructor(
         emit(auth.currentUser != null)
     }
 
+    override fun sendOrders(): Flow<Result<String>> = callbackFlow{
+
+        dao.getAllProductsFromCart().forEach {productEntity ->
+
+            val order = hashMapOf(
+                "id" to productEntity.id,
+                "imageUrl" to productEntity.imageUrl,
+                "title" to productEntity.title,
+                "totalPrice" to "${productEntity.totalPrice}",
+                "count" to productEntity.count,
+                "uid" to auth.currentUser?.uid
+            )
+
+
+            fireStore
+                .collection(myOrdersCollection)
+                .add(order)
+                .addOnSuccessListener {
+                    dao.deleteProduct(productEntity)
+                }
+                .addOnFailureListener {
+                    trySend(Result.failure(it))
+                }
+
+        }
+        trySend(Result.success("Orders have been sent successfully"))
+
+        awaitClose()
+    }
+
+    override fun getMyOrders(): Flow<Result<List<MyOrderData>>> = callbackFlow {
+        val list = mutableListOf<MyOrderData>()
+
+        fireStore
+            .collection(myOrdersCollection)
+            .whereEqualTo("uid",auth.currentUser?.uid)
+            .get()
+            .addOnSuccessListener {documents->
+                documents.forEach {
+                    list.add(
+                        MyOrderData(
+                            id = (it.get("id") as Long).toInt(),
+                            imageUrl = it.get("imageUrl") as String,
+                            title = it.get("title") as String,
+                            totalPrice = it.get("totalPrice") as String,
+                            count = it.get("count") as Int,
+                            uid = it.get("uid") as String
+                        )
+                    )
+                }
+                trySend(Result.success(list))
+            }
+            .addOnFailureListener {
+                trySend(Result.failure(it))
+            }
+
+        awaitClose()
+    }
+
     private suspend fun getAllCategory() = withContext(Dispatchers.IO) {
         try {
             val list = arrayListOf<CategoryData>()
@@ -65,8 +125,6 @@ class AppRepositoryImpl @Inject constructor(
                 val subListSnapshot = doc.reference.collection("items").get().await()
 
                 val subList = arrayListOf<ProductData>()
-
-
 
                 for (item in subListSnapshot) {
 //                    myLog("item id = ${(item.get("id") as Long).toInt()} title = ${item.get("title")} imageUrl = ${item.get("imageUrl")} price = ${item.get("price")} info = ${item.get("info")}")

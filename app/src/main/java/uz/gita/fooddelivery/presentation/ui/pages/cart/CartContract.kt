@@ -19,6 +19,7 @@ interface CartContract {
         class UpdateCount(val count:Int,val id:Int): Intent
         class DeleteProduct(val product:ProductEntity): Intent
         object DeleteAllProductsInCart: Intent
+        object SendOrders:Intent
     }
 
     interface ViewModel:ContainerHost<UiState, SideEffect> {
