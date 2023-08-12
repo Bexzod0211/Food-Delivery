@@ -7,6 +7,7 @@ interface CartContract {
     sealed interface UiState {
         class AllData(val list:List<ProductEntity>,val totalPrice:String): UiState
         object Init: UiState
+        class Progressbar(val isLoading:Boolean):UiState
     }
 
 

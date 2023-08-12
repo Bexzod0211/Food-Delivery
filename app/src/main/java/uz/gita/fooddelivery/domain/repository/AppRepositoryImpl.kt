@@ -2,13 +2,18 @@ package uz.gita.fooddelivery.domain.repository
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import okhttp3.internal.wait
 import uz.gita.fooddelivery.data.model.CategoryData
 import uz.gita.fooddelivery.data.model.MyOrderData
 import uz.gita.fooddelivery.data.model.ProductData
@@ -20,7 +25,7 @@ import javax.inject.Inject
 class AppRepositoryImpl @Inject constructor(
     private val fireStore: FirebaseFirestore,
     private val localDb: LocalDatabase,
-    private val auth:FirebaseAuth
+    private val auth: FirebaseAuth
 ) : AppRepository {
 
     private val dao = localDb.getProductDao()
@@ -30,7 +35,7 @@ class AppRepositoryImpl @Inject constructor(
         return dao.getProductsCount()
     }
 
-    override fun createAccount(email: String, password: String): Flow<Result<String>> = callbackFlow{
+    override fun createAccount(email: String, password: String): Flow<Result<String>> = callbackFlow {
         auth.createUserWithEmailAndPassword(email, password)
             .addOnSuccessListener {
                 trySend(Result.success("You have signed up successfully"))
@@ -41,51 +46,91 @@ class AppRepositoryImpl @Inject constructor(
         awaitClose()
     }
 
-    override fun login(email: String, password: String): Flow<Result<String>> = callbackFlow{
-        auth.signInWithEmailAndPassword(email,password)
+    override fun login(email: String, password: String): Flow<Result<String>> = callbackFlow {
+        auth.signInWithEmailAndPassword(email, password)
             .addOnSuccessListener {
                 trySend(Result.success("You have logged in successfully"))
             }
             .addOnFailureListener {
-                myLog(it.message?:"")
+                myLog(it.message ?: "")
                 trySend(Result.failure(it))
             }
 
         awaitClose()
     }
 
-    override fun hasLoggedIn(): Flow<Boolean> = flow{
+    override fun hasLoggedIn(): Flow<Boolean> = flow {
         emit(auth.currentUser != null)
     }
 
-    override fun sendOrders(): Flow<Result<String>> = callbackFlow{
-
-        dao.getAllProductsFromCart().forEach {productEntity ->
-
-            val order = hashMapOf(
-                "id" to productEntity.id,
-                "imageUrl" to productEntity.imageUrl,
-                "title" to productEntity.title,
-                "totalPrice" to "${productEntity.totalPrice}",
-                "count" to productEntity.count,
-                "uid" to auth.currentUser?.uid
+    override fun sendOrders(): Flow<Result<String>> = callbackFlow {
+        /*val list = mutableListOf<MyOrderData>()
+        dao.getAllProductsFromCart().forEach { productEntity ->
+            list.add(
+                MyOrderData(
+                    id = productEntity.id,
+                    imageUrl = productEntity.imageUrl,
+                    title = productEntity.title,
+                    totalPrice = "${productEntity.totalPrice}",
+                    count = productEntity.count,
+                    uid = auth.currentUser?.uid!!
+                )
             )
-
-
-            fireStore
-                .collection(myOrdersCollection)
-                .add(order)
-                .addOnSuccessListener {
-                    dao.deleteProduct(productEntity)
-                }
-                .addOnFailureListener {
-                    trySend(Result.failure(it))
-                }
-
         }
-        trySend(Result.success("Orders have been sent successfully"))
 
+        val map: Map<String, Any?> = list.map { order ->
+            "id" to order.id
+            "imageUrl" to order.
+            "title" to order.title
+            "totalPrice" to "${order.totalPrice}"
+            "count" to order.count
+            "uid" to order.uid
+            "${order.id}" to order
+        }.toMap()
+
+
+
+        fireStore
+            .collection(myOrdersCollection)
+            .add(map)
+            .addOnSuccessListener {
+                dao.deleteAllProducts()
+                trySend(Result.success("Orders have been sent successfully"))
+            }
+            .addOnFailureListener {
+                trySend(Result.failure(it))
+            }
+
+        awaitClose()*/
+
+            dao.getAllProductsFromCart().forEach { productEntity ->
+
+                val order = hashMapOf(
+                    "id" to productEntity.id,
+                    "imageUrl" to productEntity.imageUrl,
+                    "title" to productEntity.title,
+                    "totalPrice" to "${productEntity.totalPrice}",
+                    "count" to productEntity.count,
+                    "uid" to auth.currentUser?.uid
+                )
+
+
+                fireStore
+                    .collection(myOrdersCollection)
+                    .add(order)
+                    .addOnSuccessListener {
+                        dao.deleteProduct(productEntity)
+                    }
+                    .addOnFailureListener {
+                        trySend(Result.failure(it))
+                    }
+
+            }
+
+        myLog("products in cart ${dao.getAllProductsFromCart()}")
+        trySend(Result.success("Orders have been sent successfully"))
         awaitClose()
+
     }
 
     override fun getMyOrders(): Flow<Result<List<MyOrderData>>> = callbackFlow {
@@ -93,9 +138,9 @@ class AppRepositoryImpl @Inject constructor(
 
         fireStore
             .collection(myOrdersCollection)
-            .whereEqualTo("uid",auth.currentUser?.uid)
+            .whereEqualTo("uid", auth.currentUser?.uid)
             .get()
-            .addOnSuccessListener {documents->
+            .addOnSuccessListener { documents ->
                 documents.forEach {
                     list.add(
                         MyOrderData(
@@ -103,7 +148,7 @@ class AppRepositoryImpl @Inject constructor(
                             imageUrl = it.get("imageUrl") as String,
                             title = it.get("title") as String,
                             totalPrice = it.get("totalPrice") as String,
-                            count = it.get("count") as Int,
+                            count = (it.get("count") as Long).toInt(),
                             uid = it.get("uid") as String
                         )
                     )

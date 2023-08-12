@@ -1,5 +1,6 @@
 package uz.gita.fooddelivery.presentation.ui.pages.cart
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
@@ -32,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -41,8 +44,10 @@ import cafe.adriel.voyager.hilt.getViewModel
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import org.orbitmvi.orbit.compose.collectAsState
+import org.orbitmvi.orbit.compose.collectSideEffect
 import uz.gita.fooddelivery.R
 import uz.gita.fooddelivery.data.source.local.entity.ProductEntity
+import uz.gita.fooddelivery.presentation.ui.pages.myorders.MyOrdersContract
 import uz.gita.fooddelivery.presentation.ui.theme.ContainerColor
 import uz.gita.fooddelivery.presentation.ui.theme.FoodDeliveryTheme
 import uz.gita.fooddelivery.presentation.ui.theme.MainColor
@@ -59,6 +64,14 @@ class CartScreen : Tab {
     @Composable
     override fun Content() {
         val viewModel: CartContract.ViewModel = getViewModel<CartViewModel>()
+        val context = LocalContext.current
+        viewModel.collectSideEffect {
+            when(it){
+                is CartContract.SideEffect.Toast->{
+                    Toast.makeText(context, it.message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
         ScreenContent(uiState = viewModel.collectAsState(), onEventDispatcher = viewModel::onEventDispatcher)
     }
 }
@@ -82,28 +95,33 @@ private fun ScreenContent(
     var removeAll by remember {
         mutableStateOf(false)
     }
-    var productForDelete:ProductEntity? by remember {
+
+    var productForDelete: ProductEntity? by remember {
         mutableStateOf(null)
     }
 
-    if (openDialog){
+    var sendOrders by remember {
+        mutableStateOf(false)
+    }
+
+    if (openDialog) {
         AlertDialog(
             onDismissRequest = {
                 openDialog = false
             },
             confirmButton = {
-                Row(modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     Row(
                         modifier = Modifier
-                            .size(150.dp,56.dp)
-                        ,
+                            .size(150.dp, 56.dp),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
-                    ){
+                    ) {
                         Text(
                             text = "Cancel",
                             fontSize = 16.sp,
@@ -128,16 +146,19 @@ private fun ScreenContent(
                                     onEventDispatcher.invoke(CartContract.Intent.DeleteProduct(productForDelete!!))
                                 } else if (removeAll) {
                                     onEventDispatcher.invoke(CartContract.Intent.DeleteAllProductsInCart)
+                                } else if (sendOrders) {
+                                    onEventDispatcher.invoke(CartContract.Intent.SendOrders)
                                 }
                                 deleteOne = false
                                 removeAll = false
                                 openDialog = false
-                            }
-                        ,
+                                sendOrders = false
+                            },
                         contentAlignment = Alignment.Center
-                    ){
+                    ) {
                         Text(
-                            text = "Delete",
+                            text = if (sendOrders) "Checkout"
+                            else "Delete",
                             color = Color.White,
                             fontSize = 16.sp
                         )
@@ -152,7 +173,8 @@ private fun ScreenContent(
                 ) {
                     Text(
                         text = if (deleteOne) "Delete product"
-                        else if(removeAll) "Delete all products"
+                        else if (removeAll) "Delete all products"
+                        else if (sendOrders) "Send orders"
                         else "",
                         color = Color.Black,
                         fontSize = 24.sp,
@@ -183,6 +205,7 @@ private fun ScreenContent(
                     Text(
                         text = if (deleteOne) "Are you sure want to delete product?"
                         else if (removeAll) "Are you sure want to delete all products?"
+                        else if (sendOrders) "Are you sure want to checkout orders?"
                         else "",
                         color = Color.Black,
                         fontSize = 16.sp,
@@ -242,6 +265,7 @@ private fun ScreenContent(
                                             .clickable {
                                                 removeAll = true
                                                 deleteOne = false
+                                                sendOrders = false
                                                 openDialog = true
                                             }
                                     )
@@ -254,7 +278,7 @@ private fun ScreenContent(
                                 )
                             ) {
                                 itemsIndexed(allData.list) { index, item ->
-                                    if (index == 0){
+                                    if (index == 0) {
                                         ItemCart(
                                             product = item,
                                             onChangeCount = { count, id ->
@@ -264,24 +288,26 @@ private fun ScreenContent(
                                                 productForDelete = it
                                                 deleteOne = true
                                                 removeAll = false
+                                                sendOrders = false
                                                 openDialog = true
                                             },
                                             modifier = Modifier
                                                 .padding(top = 16.dp)
                                         )
-                                    }else {
-                                    ItemCart(
-                                        product = item,
-                                        onChangeCount = { count, id ->
-                                            onEventDispatcher.invoke(CartContract.Intent.UpdateCount(count, id))
-                                        },
-                                        onDelete = {
-                                            productForDelete = it
-                                            deleteOne = true
-                                            removeAll = false
-                                            openDialog = true
-                                        }
-                                    )
+                                    } else {
+                                        ItemCart(
+                                            product = item,
+                                            onChangeCount = { count, id ->
+                                                onEventDispatcher.invoke(CartContract.Intent.UpdateCount(count, id))
+                                            },
+                                            onDelete = {
+                                                productForDelete = it
+                                                deleteOne = true
+                                                removeAll = false
+                                                sendOrders = false
+                                                openDialog = true
+                                            }
+                                        )
                                     }
                                     if (index != allData.list.size - 1) {
                                         Divider(
@@ -318,7 +344,7 @@ private fun ScreenContent(
                             }
                         }
                     }
-                    if (allData.list.isNotEmpty()){
+                    if (allData.list.isNotEmpty()) {
                         Column(
                             modifier = Modifier
                                 .height(130.dp)
@@ -357,7 +383,14 @@ private fun ScreenContent(
                                     .background(
                                         color = MainColor,
                                         shape = RoundedCornerShape(8.dp)
-                                    ),
+                                    )
+                                    .clickable {
+                                        sendOrders = true
+                                        deleteOne = false
+                                        removeAll = false
+                                        openDialog = true
+
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
@@ -370,8 +403,30 @@ private fun ScreenContent(
                     }
                 }
             }
+
             CartContract.UiState.Init -> {
 
+            }
+
+            is CartContract.UiState.Progressbar->{
+
+            }
+        }
+
+        if (uiState.value is CartContract.UiState.Progressbar){
+            val progressBar = uiState.value as CartContract.UiState.Progressbar
+            if (progressBar.isLoading) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator(
+                        color = MainColor,
+                        modifier = Modifier
+                            .size(56.dp)
+                    )
+                }
             }
         }
     }

@@ -24,4 +24,8 @@ class CartUseCaseImpl @Inject constructor(
     override fun deleteAllProductsInCart(): Flow<Result<Unit>> {
         return repository.deleteAllProductsInCart()
     }
+
+    override fun sendOrders(): Flow<Result<String>> {
+        return repository.sendOrders()
+    }
 }

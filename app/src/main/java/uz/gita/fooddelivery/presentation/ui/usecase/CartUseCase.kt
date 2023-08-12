@@ -8,4 +8,5 @@ interface CartUseCase {
     fun updateCountById(count:Int,id:Int):Flow<Result<Unit>>
     fun deleteProduct(product:ProductEntity):Flow<Result<String>>
     fun deleteAllProductsInCart():Flow<Result<Unit>>
+    fun sendOrders():Flow<Result<String>>
 }

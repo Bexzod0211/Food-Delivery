@@ -11,6 +11,7 @@ import org.orbitmvi.orbit.syntax.simple.postSideEffect
 import org.orbitmvi.orbit.syntax.simple.reduce
 import org.orbitmvi.orbit.viewmodel.container
 import uz.gita.fooddelivery.presentation.ui.usecase.CartUseCase
+import uz.gita.fooddelivery.utils.myLog
 import javax.inject.Inject
 
 @HiltViewModel
@@ -25,14 +26,15 @@ class CartViewModel @Inject constructor(
             CartContract.Intent.LoadAllData -> {
                 useCase.getAllProductsFromCart()
                     .onEach { result ->
-                        result.onSuccess {
+                        result.onSuccess { list ->
                             var totalPrice = 0
-                            it.forEach {
+                            list.forEach {
                                 totalPrice += it.totalPrice
                             }
                             intent {
                                 reduce {
-                                    CartContract.UiState.AllData(it, priceToString(totalPrice))
+                                    myLog("CartContract.Intent.LoadAllData $list")
+                                    CartContract.UiState.AllData(list, priceToString(totalPrice))
                                 }
                             }
                         }
@@ -69,7 +71,27 @@ class CartViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             CartContract.Intent.SendOrders->{
-                
+                myLog("CartContract.Intent.SendOrders")
+                intent { reduce { CartContract.UiState.Progressbar(true) } }
+                useCase.sendOrders()
+                    .onEach {result ->
+                        intent { reduce { CartContract.UiState.Progressbar(false) } }
+                        result.onSuccess {
+                            useCase.deleteAllProductsInCart()
+                                .onEach {
+
+                                }
+                                .launchIn(viewModelScope)
+                            intent {
+                                postSideEffect(CartContract.SideEffect.Toast(it))
+                            }
+                            onEventDispatcher(CartContract.Intent.LoadAllData)
+                        }
+                        result.onFailure {
+                            myLog(it.message?:"")
+                        }
+                    }
+                    .launchIn(viewModelScope)
             }
         }
     }
