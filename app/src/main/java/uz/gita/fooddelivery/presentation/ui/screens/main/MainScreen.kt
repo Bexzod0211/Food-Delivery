@@ -31,6 +31,10 @@ import cafe.adriel.voyager.navigator.tab.CurrentTab
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.orbitmvi.orbit.compose.collectAsState
 import uz.gita.fooddelivery.MainActivity
 import uz.gita.fooddelivery.domain.repository.AppRepository
@@ -67,6 +71,9 @@ class MainScreen(private val screen:Tab = HomeScreen()) : AndroidScreen() {
                     }
                 })
         }
+
+
+
     }
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
@@ -144,3 +151,19 @@ class MainScreen(private val screen:Tab = HomeScreen()) : AndroidScreen() {
     }
 }
 
+
+fun main(){
+    val scope1 = CoroutineScope(Dispatchers.Main)
+    val scope2 = CoroutineScope(Dispatchers.Main)
+
+    scope1.launch {
+        delay(2000)
+        println("scope1")
+    }
+
+    scope2.launch {
+        delay(3000)
+        println("scope2")
+    }
+
+}
